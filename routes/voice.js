@@ -1,8 +1,8 @@
 var VoiceResponse = require('twilio').twiml.VoiceResponse;
-var SurveyResponse = require('../models/SurveyResponse');
-var survey = require('../survey_data');
+var CustomerInteraction = require('../models/SurveyResponse');
+var interactionFlow = require('../survey_data');
 
-// Main interview loop
+// Main customer service interaction loop
 exports.interview = function(request, response) {
     var phone = request.body.From;
     var input = request.body.RecordingUrl || request.body.Digits;
@@ -19,82 +19,90 @@ exports.interview = function(request, response) {
         response.send(twiml.toString());
     }
 
-    // Find an in-progess survey if one exists, otherwise create one
-    SurveyResponse.advanceSurvey({
+    // Find an in-progress interaction or create one
+    CustomerInteraction.advanceInteraction({
         phone: phone,
         input: input,
-        survey: survey
-    }, function(err, surveyResponse, questionIndex) {
-        var question = survey[questionIndex];
+        survey: interactionFlow
+    }, function(err, interaction, questionIndex) {
+        var question = interactionFlow[questionIndex];
 
-        if (err || !surveyResponse) {
-            say('Terribly sorry, but an error has occurred. Goodbye.');
+        if (err || !interaction) {
+            say('We apologize, but an error has occurred. Please try calling CVS customer service again.');
             return respond();
         }
 
-        // If question is null, we're done!
+        // If interaction is complete, provide service-specific closing message
         if (!question) {
-            say('Thank you for taking this survey. Goodbye!');
+            var serviceType = interaction.serviceType;
+            var endMessage = 'Thank you for contacting CVS customer service. ';
+
+            switch(serviceType) {
+                case 1:
+                    endMessage += 'We will update you on your prescription status shortly.';
+                    break;
+                case 2:
+                    endMessage += 'For immediate store information, visit CVS.com/stores.';
+                    break;
+                case 3:
+                    endMessage += 'Your ExtraCare rewards information will be sent shortly.';
+                    break;
+                default:
+                    endMessage += 'A customer service representative will follow up with you soon.';
+            }
+
+            say(endMessage);
             return respond();
         }
 
-        // Add a greeting if this is the first question
+        // Add greeting for first interaction
         if (questionIndex === 0) {
-            say('Thank you for taking our survey. Please listen carefully '
-                + 'to the following questions.');
+            say('Welcome to CVS Customer Service. Please listen carefully to the following options.');
         }
 
-        // Otherwise, ask the next question
+        // Ask the current question
         say(question.text);
 
-        // Depending on the type of question, we either need to get input via
-        // DTMF tones or recorded speech
+        // Handle different input types
         if (question.type === 'text') {
-            say('Please record your response after the beep. '
-                + 'Press any key to finish.');
+            say('Please leave your message after the beep. Press any key when finished.');
             twiml.record({
                 transcribe: true,
-                transcribeCallback: '/voice/' + surveyResponse._id
+                transcribeCallback: '/voice/' + interaction._id
                     + '/transcribe/' + questionIndex,
-                maxLength: 60
+                maxLength: 120
             });
         } else if (question.type === 'boolean') {
-            say('Press one for "yes", and any other key for "no".');
+            say('Press 1 for yes, or any other key for no.');
             twiml.gather({
                 timeout: 10,
                 numDigits: 1
             });
         } else {
-            // Only other supported type is number
-            say('Enter the number using the number keys on your telephone.'
-                + ' Press star to finish.');
+            say('Please enter your selection using the number keys on your phone.');
             twiml.gather({
                 timeout: 10,
-                finishOnKey: '*'
+                numDigits: 1
             });
         }
 
-        // render TwiML response
         respond();
     });
 };
 
-// Transcripton callback - called by Twilio with transcript of recording
-// Will update survey response outside the interview call flow
+// Transcription callback for voice messages
 exports.transcription = function(request, response) {
     var responseId = request.params.responseId;
     var questionIndex = request.params.questionIndex;
     var transcript = request.body.TranscriptionText;
 
-    SurveyResponse.findById(responseId, function(err, surveyResponse) {
-        if (err || !surveyResponse ||
-            !surveyResponse.responses[questionIndex])
+    CustomerInteraction.findById(responseId, function(err, interaction) {
+        if (err || !interaction || !interaction.responses[questionIndex])
             return response.status(500).end();
 
-        // Update appropriate answer field
-        surveyResponse.responses[questionIndex].answer = transcript;
-        surveyResponse.markModified('responses');
-        surveyResponse.save(function(err, doc) {
+        interaction.responses[questionIndex].answer = transcript;
+        interaction.markModified('responses');
+        interaction.save(function(err, doc) {
             return response.status(err ? 500 : 200).end();
         });
     });
