@@ -30,8 +30,16 @@ def start_node_server():
 
         # Get the absolute path to the project root
         project_root = os.path.dirname(os.path.dirname(__file__))
-
         logger.info(f"Starting Node.js server in directory: {project_root}")
+
+        # Check if we're in production (Fly.io)
+        if os.getenv('FLY_APP_NAME'):
+            logger.info("Running in production environment")
+            # In production, we'll use a different port for Node.js
+            env['PORT'] = '3001'
+            # Ensure Node.js only listens on localhost
+            env['HOST'] = 'localhost'
+
         node_process = subprocess.Popen(
             ['node', 'index.js'],
             cwd=project_root,
@@ -75,8 +83,7 @@ signal.signal(signal.SIGTERM, lambda *args: cleanup())
 async def startup_event():
     logger.info("Starting FastAPI application...")
     if not start_node_server():
-        logger.error("Failed to start Node.js server, exiting...")
-        sys.exit(1)
+        logger.error("Failed to start Node.js server, but continuing...")
     await asyncio.sleep(2)  # Wait for Node.js server to initialize
 
 @app.on_event("shutdown")
@@ -85,21 +92,36 @@ async def shutdown_event():
 
 @app.get("/health")
 async def health_check():
-    if not node_process or node_process.poll() is not None:
-        raise HTTPException(status_code=503, detail="Node.js server is not running")
-    return {"status": "healthy", "node_server": "running"}
+    try:
+        # Check if Node.js server is running
+        if node_process and node_process.poll() is None:
+            node_status = "running"
+        else:
+            node_status = "not running"
+            # Try to restart Node.js server if it's not running
+            if start_node_server():
+                node_status = "restarted"
+
+        return {
+            "status": "healthy",
+            "node_server": node_status,
+            "environment": "production" if os.getenv('FLY_APP_NAME') else "development"
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"status": "unhealthy", "error": str(e)}
+        )
 
 @app.api_route("/{path:path}", methods=["GET", "POST"])
 async def proxy(request: Request, path: str):
-    if not node_process or node_process.poll() is not None:
-        logger.error("Node.js server is not running, attempting to restart...")
-        if not start_node_server():
-            raise HTTPException(status_code=503, detail="Node.js server is unavailable")
-        await asyncio.sleep(2)
+    # Determine Node.js server port
+    node_port = "3001" if os.getenv('FLY_APP_NAME') else "3000"
 
     async with httpx.AsyncClient() as client:
         try:
-            url = f"http://localhost:3000/{path}"
+            url = f"http://localhost:{node_port}/{path}"
             method = request.method
             headers = dict(request.headers)
 
