@@ -1,16 +1,17 @@
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import StreamingResponse
-import uvicorn, request, Response
 import os
 import subprocess
-import requests
+import httpx
 import signal
 import atexit
 from dotenv import load_dotenv
+import asyncio
+from typing import Optional
 
 load_dotenv()
 
-app = FastAPI()
+app = FastAPI(title="CVS Customer Service Demo")
 node_process = None
 
 def start_node_server():
@@ -35,29 +36,38 @@ def cleanup():
 atexit.register(cleanup)
 signal.signal(signal.SIGTERM, lambda *args: cleanup())
 
-@app.before_first_request
-def initialize():
+@app.on_event("startup")
+async def startup_event():
     start_node_server()
+    # Wait for Node.js server to start
+    await asyncio.sleep(2)
 
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>', methods=['GET', 'POST'])
-def proxy(path):
-    url = f'http://localhost:3000/{path}'
+@app.api_route("/{path:path}", methods=["GET", "POST"])
+async def proxy(request: Request, path: str):
+    client = httpx.AsyncClient()
+    url = f"http://localhost:3000/{path}"
 
     try:
-        if request.method == 'POST':
-            resp = requests.post(url, json=request.get_json(), headers=request.headers)
+        method = request.method
+        headers = dict(request.headers)
+        body = await request.body() if method == "POST" else None
+
+        if method == "POST":
+            response = await client.post(url, content=body, headers=headers)
         else:
-            resp = requests.get(url, headers=request.headers)
+            response = await client.get(url, headers=headers)
 
-        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
-        headers = [(name, value) for (name, value) in resp.raw.headers.items()
-                  if name.lower() not in excluded_headers]
+        return Response(
+            content=response.content,
+            status_code=response.status_code,
+            headers=dict(response.headers)
+        )
+    except httpx.ConnectError:
+        return Response(content="Service temporarily unavailable", status_code=503)
+    finally:
+        await client.aclose()
 
-        return Response(resp.content, resp.status_code, headers)
-    except requests.exceptions.ConnectionError:
-        return "Service temporarily unavailable", 503
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 5000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
