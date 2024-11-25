@@ -2,92 +2,77 @@
   <img src="https://static0.twilio.com/marketing/bundles/marketing/img/logos/wordmark-red.svg" alt="Twilio" width="250" />
 </a>
 
-# CVS Customer Service Communications - Powered by Twilio
+# CVS Pharmacy Customer Communications Demo - Powered by Twilio
 
-Enhance customer service communications for CVS retail customers using voice calls and SMS text messages. This application provides automated customer service interactions for prescription status inquiries, store information requests, ExtraCare rewards balance checks, and general customer service inquiries.
+A frontend demonstration of how CVS Pharmacy can improve communications with retail customers using Twilio's messaging capabilities. This application showcases automated prescription notifications to enhance customer service and engagement.
+
+[Live Demo](https://mellifluous-mochi-95851f.netlify.app)
 
 ## Features
 
-- **Multi-Channel Support**: Interact with customers via both voice calls and SMS
-- **Service Selection Menu**: Easy-to-use menu for different customer service needs
-  - Prescription Status Updates
-  - Store Information
-  - ExtraCare Rewards Balance
-  - General Inquiries
-- **Notification Preferences**: Customers can opt-in to receive future updates
-- **Voice Recognition**: Support for voice message recording and transcription
-- **Admin Dashboard**: View and track customer interactions
+- **Prescription Ready Notifications**: Send automated notifications when prescriptions are ready for pickup
+- **Customer Response Handling**: Simulated customer response tracking for prescription notifications
+- **Real-time Message Logging**: View message history and notification status
+- **Mobile-Friendly Interface**: Responsive design for both desktop and mobile use
+
+## Use Case
+
+This demo addresses CVS Pharmacy's need to improve communications with retail customers by:
+- Automating prescription status notifications
+- Reducing customer wait times
+- Improving pickup efficiency
+- Enhancing overall customer experience
 
 ## Local Development
 
-First you need to install [Node.js](http://nodejs.org/) as well as [MongoDB](https://www.mongodb.org/)
-
-To run the app locally:
-
 1. Clone this repository and `cd` into it
-
    ```bash
-   $ git clone git@github.com:TwilioDevEd/survey-node.git
-
-   $ cd survey-node
+   git clone https://github.com/jonmarkgo/devin-demo-twilio.git
+   cd devin-demo-twilio
    ```
 
-1. Install dependencies
-
-    ```bash
-    $ npm install
-    ```
-
-1. Copy the sample configuration file and edit it to match your configuration
-
+2. Install dependencies
    ```bash
-   $ cp .env.example .env
-   ```
-   Be sure to set `MONGO_URL`to your local mongo instance uri for example:
-   `mongodb://localhost:27017/surveys` where `surveys` is the db name.
-
-1. Run the application
-
-    ```bash
-    $ npm start
-    ```
-    Alternatively you might also consider using [nodemon](https://github.com/remy/nodemon) for this. It works just like
-    the node command but automatically restarts your application when you change any source code files.
-
-    ```bash
-    $ npm install -g nodemon
-    $ nodemon index
-    ```
-1. Expose your application to the wider internet using [ngrok](http://ngrok.com). This step
-   is important because the application won't work as expected if you run it through
-   localhost.
-
-   ```bash
-   $ npm i -g ngrok
-   $ ngrok http 3000
+   npm install
    ```
 
-   Once ngrok is running, open up your browser and go to your ngrok URL. It will
-   look something like this: `http://9a159ccf.ngrok.io`
+3. Set up environment variables
+   ```bash
+   cp .env.example .env
+   ```
+   Add your Twilio credentials:
+   ```
+   TWILIO_ACCOUNT_SID=your_account_sid
+   TWILIO_AUTH_TOKEN=your_auth_token
+   TWILIO_PHONE_NUMBER=your_twilio_number
+   ```
 
-   You can read [this blog post](https://www.twilio.com/blog/2015/09/6-awesome-reasons-to-use-ngrok-when-testing-webhooks.html)
-   for more details on how to use ngrok.
+4. Run the application
+   ```bash
+   npm start
+   ```
+   The application will be available at `http://localhost:3000`
 
-### Configuring Customer Service Flow
+## Deployment
 
-The application uses a structured interaction flow defined in `survey_data.js`. The flow includes:
-1. Service type selection
-2. Notification preferences
-3. Additional feedback/questions
+This demo is deployed using Netlify for the frontend interface. The live demo can be accessed at:
+[https://mellifluous-mochi-95851f.netlify.app](https://mellifluous-mochi-95851f.netlify.app)
 
-### Webhook Configuration
+## Implementation Details
 
-Configure your Twilio number's webhook URLs:
-- Voice: `http://your-url/voice`
-- SMS: `http://your-url/message`
+The application demonstrates:
+- Frontend interface for sending prescription notifications
+- Simulated customer response handling
+- Message history tracking
+- CVS-branded user interface
+
+In a production environment, this would be connected to:
+- Twilio's SMS API for real message delivery
+- CVS's prescription management system
+- Customer database for phone number verification
 
 ## Meta
 
-* No warranty expressed or implied. Software is as is. Diggity.
+* No warranty expressed or implied. Software is as is.
 * [MIT License](http://www.opensource.org/licenses/mit-license.html)
-* Lovingly crafted by Twilio Developer Education.
+* Demo created for CVS Pharmacy using Twilio's messaging capabilities
