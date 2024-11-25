@@ -2,13 +2,23 @@
   <img src="https://static0.twilio.com/marketing/bundles/marketing/img/logos/wordmark-red.svg" alt="Twilio" width="250" />
 </a>
 
-[![Node.js CI](https://github.com/TwilioDevEd/survey-node/actions/workflows/node.js.yml/badge.svg)](https://github.com/TwilioDevEd/survey-node/actions/workflows/node.js.yml)
+# CVS Customer Service Communications - Powered by Twilio
 
-# Automated Surveys. Powered by Twilio - Node.js/Express
+Enhance customer service communications for CVS retail customers using voice calls and SMS text messages. This application provides automated customer service interactions for prescription status inquiries, store information requests, ExtraCare rewards balance checks, and general customer service inquiries.
 
-Instantly collect structured data from your users with a survey conducted over a voice call or SMS text messages. Learn how to create your own survey in the language and framework of your choice. For a step-by-step tutorial see [twilio docs](https://www.twilio.com/docs/howto/walkthrough/automated-survey/node/express).
+## Features
 
-## Local development
+- **Multi-Channel Support**: Interact with customers via both voice calls and SMS
+- **Service Selection Menu**: Easy-to-use menu for different customer service needs
+  - Prescription Status Updates
+  - Store Information
+  - ExtraCare Rewards Balance
+  - General Inquiries
+- **Notification Preferences**: Customers can opt-in to receive future updates
+- **Voice Recognition**: Support for voice message recording and transcription
+- **Admin Dashboard**: View and track customer interactions
+
+## Local Development
 
 First you need to install [Node.js](http://nodejs.org/) as well as [MongoDB](https://www.mongodb.org/)
 
@@ -63,17 +73,18 @@ To run the app locally:
    You can read [this blog post](https://www.twilio.com/blog/2015/09/6-awesome-reasons-to-use-ngrok-when-testing-webhooks.html)
    for more details on how to use ngrok.
 
-   ### Configure Twilio to call your webhooks
+### Configuring Customer Service Flow
 
-   You will also need to configure Twilio to call your application when calls are received
+The application uses a structured interaction flow defined in `survey_data.js`. The flow includes:
+1. Service type selection
+2. Notification preferences
+3. Additional feedback/questions
 
-   You will need to provision at least one Twilio number with voice capabilities
-   so the application's users can take surveys. You can buy a number [using the twilio console.](https://www.twilio.com/user/account/phone-numbers/search). Once you havea number you need to configure your number to work with your application. Open [the number management page](https://www.twilio.com/user/account/phone-numbers/incoming) and open a number's configuration by clicking on it.
+### Webhook Configuration
 
-   ![Configure Voice](public/webhook-screen-cap.gif)
-
-
-1. Check it out at [http://localhost:3000](http://localhost:3000)
+Configure your Twilio number's webhook URLs:
+- Voice: `http://your-url/voice`
+- SMS: `http://your-url/message`
 
 ## Meta
 
