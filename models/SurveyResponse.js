@@ -1,100 +1,94 @@
-var mongoose = require('mongoose');
-// Define customer interaction model schema
-var CustomerInteractionSchema = new mongoose.Schema({
-    // phone number of customer
-    phone: String,
+const { pool } = require('../db');
 
-    // status of the customer interaction
-    complete: {
-        type: Boolean,
-        default: false
-    },
+class CustomerInteraction {
+    constructor(data) {
+        this.id = data.id;
+        this.phone = data.phone;
+        this.complete = data.complete || false;
+        this.serviceType = data.service_type;
+        this.notificationsEnabled = data.notifications_enabled || false;
+        this.responses = data.responses || [];
+    }
 
-    // service type (1=prescription, 2=store info, 3=rewards, 4=other)
-    serviceType: Number,
+    static async findOne(query) {
+        const result = await pool.query(
+            'SELECT * FROM customer_interactions WHERE phone = $1 AND complete = $2 LIMIT 1',
+            [query.phone, query.complete]
+        );
+        return result.rows[0] ? new CustomerInteraction(result.rows[0]) : null;
+    }
 
-    // notification preferences
-    notificationsEnabled: {
-        type: Boolean,
-        default: false
-    },
+    static async create(data) {
+        const result = await pool.query(
+            'INSERT INTO customer_interactions (phone, complete, service_type, notifications_enabled, responses) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+            [data.phone, false, null, false, '[]']
+        );
+        return new CustomerInteraction(result.rows[0]);
+    }
 
-    // record of responses
-    responses: [mongoose.Schema.Types.Mixed]
-});
+    async save() {
+        const result = await pool.query(
+            'UPDATE customer_interactions SET complete = $1, service_type = $2, notifications_enabled = $3, responses = $4 WHERE phone = $5 RETURNING *',
+            [this.complete, this.serviceType, this.notificationsEnabled, JSON.stringify(this.responses), this.phone]
+        );
+        return result.rows[0] ? new CustomerInteraction(result.rows[0]) : null;
+    }
 
-// For the given phone number and interaction, advance the customer interaction flow
-CustomerInteractionSchema.statics.advanceInteraction = function(args, cb) {
-    var interactionData = args.survey;  // keeping survey name for compatibility
-    var phone = args.phone;
-    var input = args.input;
-    var customerInteraction;
+    static async advanceInteraction(args, cb) {
+        try {
+            const { phone, input, survey: interactionData } = args;
 
-    // Find current incomplete interaction
-    CustomerInteraction.findOne({
-        phone: phone,
-        complete: false
-    }, function(err, doc) {
-        customerInteraction = doc || new CustomerInteraction({
-            phone: phone
-        });
-        processInput();
-    });
-
-    function processInput() {
-        var responseLength = customerInteraction.responses.length;
-        var currentQuestion = interactionData[responseLength];
-
-        function reask() {
-            cb.call(customerInteraction, null, customerInteraction, responseLength);
-        }
-
-        if (input === undefined) return reask();
-
-        var questionResponse = {};
-        if (currentQuestion.type === 'boolean') {
-            var isTrue = input === '1' || input.toLowerCase() === 'yes';
-            questionResponse.answer = isTrue;
-            // Set notification preferences if this is the notifications question
-            if (responseLength === 1) {
-                customerInteraction.notificationsEnabled = isTrue;
+            // Find or create interaction
+            let customerInteraction = await CustomerInteraction.findOne({ phone, complete: false });
+            if (!customerInteraction) {
+                customerInteraction = await CustomerInteraction.create({ phone });
             }
-        } else if (currentQuestion.type === 'number') {
-            var num = Number(input);
-            if (isNaN(num)) {
-                return reask();
-            } else {
+
+            const responseLength = customerInteraction.responses.length;
+            const currentQuestion = interactionData[responseLength];
+
+            if (input === undefined) {
+                cb.call(customerInteraction, null, customerInteraction, responseLength);
+                return;
+            }
+
+            const questionResponse = {};
+
+            if (currentQuestion.type === 'boolean') {
+                const isTrue = input === '1' || input.toLowerCase() === 'yes';
+                questionResponse.answer = isTrue;
+                if (responseLength === 1) {
+                    customerInteraction.notificationsEnabled = isTrue;
+                }
+            } else if (currentQuestion.type === 'number') {
+                const num = Number(input);
+                if (isNaN(num)) {
+                    cb.call(customerInteraction, null, customerInteraction, responseLength);
+                    return;
+                }
                 questionResponse.answer = num;
-                // Set service type if this is the first question
                 if (responseLength === 0) {
                     customerInteraction.serviceType = num;
                 }
-            }
-        } else if (input.indexOf('http') === 0) {
-            questionResponse.recordingUrl = input;
-        } else {
-            questionResponse.answer = input;
-        }
-
-        questionResponse.type = currentQuestion.type;
-        customerInteraction.responses.push(questionResponse);
-
-        if (customerInteraction.responses.length === interactionData.length) {
-            customerInteraction.complete = true;
-        }
-
-        customerInteraction.save(function(err) {
-            if (err) {
-                reask();
+            } else if (input.indexOf('http') === 0) {
+                questionResponse.recordingUrl = input;
             } else {
-                cb.call(customerInteraction, err, customerInteraction, responseLength+1);
+                questionResponse.answer = input;
             }
-        });
-    }
-};
 
-// Export model
-delete mongoose.models.SurveyResponse
-delete mongoose.modelSchemas.SurveyResponse
-var SurveyResponse = mongoose.model('SurveyResponse', SurveyResponseSchema);
-module.exports = SurveyResponse;
+            questionResponse.type = currentQuestion.type;
+            customerInteraction.responses.push(questionResponse);
+
+            if (customerInteraction.responses.length === interactionData.length) {
+                customerInteraction.complete = true;
+            }
+
+            await customerInteraction.save();
+            cb.call(customerInteraction, null, customerInteraction, responseLength + 1);
+        } catch (err) {
+            cb.call(null, err);
+        }
+    }
+}
+
+module.exports = CustomerInteraction;
