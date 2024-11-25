@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "cvs-customer-service"
+version = "0.1.0"
+description = "CVS Customer Service Communication Demo"
+authors = ["Devin <devin@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+Flask = "^2.0.1"
+gunicorn = "^20.1.0"
+python-dotenv = "^0.19.0"
+requests = "^2.26.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
